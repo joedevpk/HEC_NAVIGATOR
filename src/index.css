@@ -1,0 +1,99 @@
+@import 'maplibre-gl/dist/maplibre-gl.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background: #0a1024;
+  color: #e2e8f0;
+}
+
+html.high-contrast {
+  --hc-border: 2px solid #000;
+}
+
+html.high-contrast .glass {
+  background: rgba(255, 255, 255, 0.95) !important;
+}
+
+/* "Vous êtes ici" : le point de géolocalisation MapLibre passe du bleu par
+   défaut au vert, cohérent avec le marqueur de départ de l'itinéraire. */
+.maplibregl-user-location-dot,
+.maplibregl-user-location-dot::before {
+  background-color: #10b981;
+}
+.maplibregl-user-location-accuracy-circle {
+  background-color: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: #111d47;
+  background: #f7f9fc;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+  body {
+    line-height: 1.55;
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* MapLibre popups & controls tuned to product theme */
+.maplibregl-ctrl-group {
+  border-radius: 12px !important;
+  box-shadow: 0 8px 30px rgba(17, 29, 71, 0.12) !important;
+  border: 1px solid rgba(17, 29, 71, 0.06) !important;
+}
+.maplibregl-ctrl-attrib {
+  font-size: 10px;
+  border-radius: 8px 0 0 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
