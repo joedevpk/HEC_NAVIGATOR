@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { ArrowLeft, Loader2, Mail, Lock, User } from 'lucide-react';
+import { ArrowLeft, Loader2, Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import { Button, Logo } from '@/components/ui';
 import { useNavigate } from '@/lib/router';
 import { useAuth, type OAuthProvider } from '@/context/AuthContext';
@@ -98,12 +98,12 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-hec-50/40 px-5 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-hec-50/40 px-5 py-10 dark:from-hec-950 dark:via-hec-950 dark:to-hec-900">
       <div className="w-full max-w-md">
         <div className="mb-6 flex items-center justify-between">
           <button
             onClick={() => go('/')}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-hec-600"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-hec-600 dark:text-slate-400 dark:hover:text-hec-400"
           >
             <ArrowLeft className="h-4 w-4" />
             Retour à l'accueil
@@ -111,13 +111,13 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
           <LanguageSwitcher compact />
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-7 shadow-panel sm:p-9">
+        <div className="rounded-3xl border border-slate-200 bg-white p-7 shadow-panel sm:p-9 dark:border-hec-800 dark:bg-hec-900">
           <div className="flex flex-col items-center text-center">
             <Logo size="lg" />
-            <h1 className="mt-6 font-display text-2xl font-bold text-hec-950">
+            <h1 className="mt-6 font-display text-2xl font-bold text-hec-950 dark:text-white">
               {isRegister ? 'Créer un compte' : 'Connexion'}
             </h1>
-            <p className="mt-1.5 text-sm text-slate-500">
+            <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
               {isRegister
                 ? 'Enregistrez-vous pour sauvegarder vos favoris et votre historique.'
                 : 'Accédez à votre espace personnel HEC.'}
@@ -129,10 +129,10 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
               type="button"
               onClick={() => submitOAuth('google')}
               disabled={oauthLoading !== null || loading}
-              className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-hec-950 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none"
+              className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-hec-950 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none dark:border-hec-800 dark:bg-hec-900 dark:text-white dark:hover:border-hec-700 dark:hover:bg-hec-800"
             >
               {oauthLoading === 'google' ? (
-                <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                <Loader2 className="h-4 w-4 animate-spin text-slate-400 dark:text-slate-500" />
               ) : (
                 <GoogleIcon className="h-4 w-4" />
               )}
@@ -142,10 +142,10 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
               type="button"
               onClick={() => submitOAuth('github')}
               disabled={oauthLoading !== null || loading}
-              className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-hec-950 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none"
+              className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-hec-950 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none dark:border-hec-800 dark:bg-hec-900 dark:text-white dark:hover:border-hec-700 dark:hover:bg-hec-800"
             >
               {oauthLoading === 'github' ? (
-                <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                <Loader2 className="h-4 w-4 animate-spin text-slate-400 dark:text-slate-500" />
               ) : (
                 <GitHubIcon className="h-4 w-4" />
               )}
@@ -154,11 +154,11 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
           </div>
 
           <div className="my-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-slate-100" />
-            <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+            <div className="h-px flex-1 bg-slate-100 dark:bg-hec-800" />
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
               ou
             </span>
-            <div className="h-px flex-1 bg-slate-100" />
+            <div className="h-px flex-1 bg-slate-100 dark:bg-hec-800" />
           </div>
 
           <form onSubmit={submit} className="space-y-4">
@@ -195,7 +195,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
 
             {isRegister && (
               <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                   Profil
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -206,8 +206,8 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
                       onClick={() => setRole(r.value)}
                       className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
                         role === r.value
-                          ? 'border-hec-400 bg-hec-50 text-hec-700'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                          ? 'border-hec-400 bg-hec-50 text-hec-700 dark:border-hec-500 dark:bg-hec-800 dark:text-hec-300'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-hec-800 dark:bg-hec-900 dark:text-slate-300 dark:hover:border-hec-700'
                       }`}
                     >
                       {r.label}
@@ -218,7 +218,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
             )}
 
             {error && (
-              <div className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm font-medium text-red-600">
+              <div className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm font-medium text-red-600 dark:bg-red-950/40 dark:text-red-400">
                 {error}
               </div>
             )}
@@ -233,13 +233,13 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-500">
+          <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
             {isRegister ? (
               <>
                 Déjà un compte ?{' '}
                 <button
                   onClick={() => go('/login')}
-                  className="font-semibold text-hec-600 hover:text-hec-700"
+                  className="font-semibold text-hec-600 hover:text-hec-700 dark:text-hec-400 dark:hover:text-hec-300"
                 >
                   Se connecter
                 </button>
@@ -249,7 +249,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
                 Pas encore de compte ?{' '}
                 <button
                   onClick={() => go('/register')}
-                  className="font-semibold text-hec-600 hover:text-hec-700"
+                  className="font-semibold text-hec-600 hover:text-hec-700 dark:text-hec-400 dark:hover:text-hec-300"
                 >
                   Créer un compte
                 </button>
@@ -287,7 +287,7 @@ function GoogleIcon({ className }: { className?: string }) {
 
 function GitHubIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="#181717">
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="currentColor">
       <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.57.1.79-.25.79-.55 0-.27-.01-1.16-.02-2.11-3.2.7-3.88-1.36-3.88-1.36-.52-1.34-1.28-1.69-1.28-1.69-1.04-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.47.11-3.06 0 0 .97-.31 3.18 1.18a11.05 11.05 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.24 2.77.12 3.06.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .3.21.66.8.55A10.51 10.51 0 0 0 23.5 12c0-6.35-5.15-11.5-11.5-11.5Z" />
     </svg>
   );
@@ -312,24 +312,39 @@ function Field({
   required?: boolean;
   minLength?: number;
 }) {
+  const isPassword = type === 'password';
+  const [revealed, setRevealed] = useState(false);
+
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
         {label}
       </span>
       <div className="relative">
-        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
           {icon}
         </span>
         <input
-          type={type}
+          type={isPassword && revealed ? 'text' : type}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           required={required}
           minLength={minLength}
-          className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-3.5 text-sm font-medium text-hec-950 placeholder:text-slate-400 focus:border-hec-400 focus:outline-none focus:ring-4 focus:ring-hec-100"
+          className={`w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 text-sm font-medium text-hec-950 placeholder:text-slate-400 focus:border-hec-400 focus:outline-none focus:ring-4 focus:ring-hec-100 dark:border-hec-800 dark:bg-hec-900 dark:text-white dark:placeholder:text-slate-500 dark:focus:border-hec-500 dark:focus:ring-hec-900 ${
+            isPassword ? 'pr-11' : 'pr-3.5'
+          }`}
         />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setRevealed((v) => !v)}
+            aria-label={revealed ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+            className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-hec-300 dark:text-slate-500 dark:hover:bg-hec-800 dark:hover:text-slate-300"
+          >
+            {revealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        )}
       </div>
     </label>
   );

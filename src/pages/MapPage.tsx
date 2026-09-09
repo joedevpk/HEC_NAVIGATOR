@@ -197,7 +197,7 @@ export function MapPage() {
   // perdu quand on le referme : on le retrouve tel quel en le rouvrant.
   const [desktopPanelOpen, setDesktopPanelOpen] = useState(true);
 
-  const [styleMode, setStyleMode] = useState<MapStyleMode>('satellite');
+  const [styleMode, setStyleMode] = useState<MapStyleMode>('plan');
   const [usingFallbackProvider, setUsingFallbackProvider] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapKey, setMapKey] = useState(0);
@@ -921,7 +921,7 @@ export function MapPage() {
             }`}
           >
             <SlidersHorizontal className="h-5 w-5" />
-            {!mobileMapControlsOpen && (styleMode !== 'satellite' || poiFilter !== 'all') && (
+            {!mobileMapControlsOpen && (styleMode !== 'plan' || poiFilter !== 'all') && (
               <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-hec-500" />
             )}
           </button>
