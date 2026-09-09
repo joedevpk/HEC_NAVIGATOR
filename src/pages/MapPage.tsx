@@ -23,7 +23,7 @@ import type { CampusLocation } from '@/lib/types';
 import { isValidLatitude, isValidLongitude } from '@/lib/geo-validation';
 import type { ExternalPOI, POIFilterGroup } from '@/lib/poi-categories';
 import { poiCategoryToFilterGroup } from '@/lib/poi-categories';
-import { fetchExternalPOIs } from '@/lib/osm-poi';
+import { fetchExternalPOIs, isUserAbort } from '@/lib/osm-poi';
 import { useCampus } from '@/context/CampusContext';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate, useRoute } from '@/lib/router';
@@ -266,16 +266,31 @@ export function MapPage() {
       controller.signal,
     )
       .then((pois) => {
+        // Requête périmée (une plus récente a déjà pris sa place) : ne
+        // touche pas à l'état, sous peine d'écraser le résultat/l'erreur
+        // de la requête active avec ceux d'une requête obsolète.
+        if (poiAbortRef.current !== controller) return;
         setExternalPois(pois);
         setPoiError(null);
       })
       .catch((err: Error) => {
-        if (err.name === 'AbortError') return;
+        if (poiAbortRef.current !== controller) return;
+        // Annulation volontaire (nouvelle requête lancée, démontage…) :
+        // jamais une erreur utilisateur, donc rien à afficher (AbortError
+        // natif du fetch, ou OverpassError de type 'abort' levé par
+        // fetchExternalPOIs une fois la requête déjà résolue côté réseau).
+        if (err.name === 'AbortError' || isUserAbort(err)) return;
         // Échec des POI publics : ne jamais faire tomber toute la carte,
         // seulement signaler l'échec localement (ÉTAPE 11 / ÉTAPE 18).
         setPoiError(err.message || "Impossible de charger les lieux à proximité.");
       })
-      .finally(() => setPoiLoading(false));
+      .finally(() => {
+        // Idem : une ancienne requête annulée ne doit pas arrêter
+        // l'indicateur de chargement d'une requête plus récente encore
+        // en cours.
+        if (poiAbortRef.current !== controller) return;
+        setPoiLoading(false);
+      });
   }, []);
 
   const handleMapReady = useCallback(
