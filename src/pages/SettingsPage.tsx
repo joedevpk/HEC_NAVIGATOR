@@ -20,6 +20,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useNavigate, useRoute } from '@/lib/router';
 import { clearSearchHistory } from '@/lib/extension-api';
+import { promptPwaInstall, usePwaInstallAvailable, isIos, isRunningStandalone } from '@/lib/pwa-install';
 import { languageNames } from '@/lib/i18n';
 import type { Language, ThemeMode, TextSize } from '@/lib/settings-types';
 import { Button } from '@/components/ui';
@@ -59,12 +60,27 @@ export function SettingsPage() {
       : 'account',
   );
   const [cleared, setCleared] = useState(false);
+  const pwaInstallAvailable = usePwaInstallAvailable();
+  const [pwaInstalling, setPwaInstalling] = useState(false);
+  // iOS n'a jamais `beforeinstallprompt` (limitation Apple, pas un bug) :
+  // seule une marche à suivre manuelle peut être proposée, et seulement
+  // si l'app n'est pas déjà installée.
+  const showIosInstallHelp = isIos() && !isRunningStandalone();
 
   const handleClearHistory = async () => {
     if (!session) return;
     await clearSearchHistory(session.user.id);
     setCleared(true);
     setTimeout(() => setCleared(false), 2000);
+  };
+
+  const handleInstallClick = async () => {
+    setPwaInstalling(true);
+    try {
+      await promptPwaInstall();
+    } finally {
+      setPwaInstalling(false);
+    }
   };
 
   const sections: { id: Section; label: string; icon: typeof User }[] = [
@@ -295,6 +311,25 @@ export function SettingsPage() {
               <p className="mt-2 text-xs text-slate-400">
                 Version 1.0 · Données de démonstration · © {new Date().getFullYear()} HEC Kinshasa
               </p>
+              {pwaInstallAvailable && (
+                <div className="mt-4">
+                  <Button
+                    variant="secondary"
+                    icon={<Download className="h-4 w-4" />}
+                    onClick={handleInstallClick}
+                    loading={pwaInstalling}
+                  >
+                    Installer l'application
+                  </Button>
+                </div>
+              )}
+              {showIosInstallHelp && (
+                <p className="mt-4 rounded-xl bg-slate-50 px-3.5 py-3 text-sm text-slate-600">
+                  Sur iPhone/iPad : appuyez sur <strong>Partager</strong> (icône carrée avec une
+                  flèche vers le haut) dans Safari, puis sur{' '}
+                  <strong>« Sur l'écran d'accueil »</strong>.
+                </p>
+              )}
             </Card>
           )}
         </div>

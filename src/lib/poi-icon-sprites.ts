@@ -164,3 +164,54 @@ export async function loadPoiIcons(map: MLMap): Promise<void> {
   await waitForStyleReady(map);
   await Promise.all(POI_CATEGORIES.map((cat) => loadOneIcon(map, cat)));
 }
+
+// ---------------------------------------------------------------------
+// Filet de sécurité global (point 8 du brief) — indépendant du système de
+// catégories ci-dessus.
+//
+// Certains layers `symbol` ne viennent PAS de notre code : le style de
+// base du fournisseur (MapTiler/Mapbox/Esri…), résolu par
+// `getMapStyle()`, embarque ses propres layers `icon-image` référençant
+// SES noms de sprite (ex. "office", "bank"…). Si ce sprite fournisseur ne
+// charge pas ou ne contient pas telle icône, MapLibre émet
+// `styleimagemissing` puis, faute d'écouteur, se contente d'un warning en
+// boucle dans la console ("Image "office" could not be loaded…") : rien
+// ne casse visuellement, mais l'icône concernée reste invisible et le
+// warning se répète à chaque tuile qui la référence.
+//
+// On pose donc un unique écouteur `styleimagemissing` par instance de
+// `map` (l'événement vit sur la map, pas sur le style : il survit à un
+// `setStyle`, pas besoin de le rattacher après un changement de style)
+// qui fournit une image de repli minimale (1×1 transparent) pour
+// N'IMPORTE QUEL id manquant — le nôtre ou celui d'un layer fournisseur.
+// Cela n'invente aucun pictogramme pour des icônes qui ne nous
+// appartiennent pas ; cela évite seulement l'échec répété.
+const FALLBACK_ICON_ID_SEEN = new Set<string>();
+
+function buildTransparentFallbackIcon(): { width: number; height: number; data: Uint8Array } {
+  return { width: 1, height: 1, data: new Uint8Array([0, 0, 0, 0]) };
+}
+
+/** À appeler une seule fois par instance de `map` (ex. juste après sa
+ * création, comme les autres `map.on(...)` globaux de CampusMap). */
+export function attachMissingIconFallback(map: MLMap): void {
+  map.on('styleimagemissing', (e: { id: string }) => {
+    const id = e.id;
+    if (map.hasImage(id)) return;
+    try {
+      map.addImage(id, buildTransparentFallbackIcon());
+    } catch (err) {
+      // Ne doit jamais faire planter la carte (même logique que
+      // loadOneIcon ci-dessus) : un warning suffit.
+      console.warn(`[poi-icon-sprites] Icône de repli impossible pour "${id}" :`, err);
+    }
+    // Log unique par id (et non à chaque tuile) pour rester utile en dev
+    // sans spammer la console.
+    if (!FALLBACK_ICON_ID_SEEN.has(id)) {
+      FALLBACK_ICON_ID_SEEN.add(id);
+      console.warn(
+        `[poi-icon-sprites] Image "${id}" absente du style (probablement un layer intégré au style de base du fournisseur, hors de notre système de catégories POI) — icône de repli transparente appliquée.`,
+      );
+    }
+  });
+}

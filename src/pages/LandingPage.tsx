@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { Button, EmptyState, Logo } from '@/components/ui';
+import { PwaInstallBanner } from '@/components/PwaInstallBanner';
 import { useNavigate } from '@/lib/router';
 import { useCampus } from '@/context/CampusContext';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
@@ -296,6 +297,10 @@ export function LandingPage() {
               >
                 Me guider
               </Button>
+            </div>
+
+            <div className="mx-auto mt-6 max-w-xl text-left">
+              <PwaInstallBanner />
             </div>
           </div>
 

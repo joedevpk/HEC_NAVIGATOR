@@ -5,7 +5,7 @@ import type { ExternalPOI } from '@/lib/poi-categories';
 import { classifyAccuracy, type GeoFix } from '@/lib/geolocation';
 import { toLngLat } from '@/lib/geo-validation';
 import { getMapStyle, mapStyleLabels, type MapStyleMode } from '@/lib/map-config';
-import { loadPoiIcons, poiIconId } from '@/lib/poi-icon-sprites';
+import { loadPoiIcons, poiIconId, attachMissingIconFallback } from '@/lib/poi-icon-sprites';
 
 type RouteFeature = {
   type: 'Feature';
@@ -503,6 +503,9 @@ export function CampusMap({
     });
     mapRef.current = map;
     poiInteractionsAttachedRef.current = false;
+    // Écouteur unique par instance de map (survit à setStyle, pas besoin
+    // de le rattacher dans 'style.load') : voir attachMissingIconFallback.
+    attachMissingIconFallback(map);
 
     map.addControl(
       new maplibregl.NavigationControl({ showCompass: true, visualizePitch: false }),

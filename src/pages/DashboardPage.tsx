@@ -18,6 +18,7 @@ import { useCampus } from '@/context/CampusContext';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from '@/lib/router';
 import { LocationCard } from '@/components/LocationCard';
+import { PwaInstallBanner } from '@/components/PwaInstallBanner';
 import { Button, EmptyState } from '@/components/ui';
 import { categoryLabels } from '@/lib/display';
 import { getRecentSearches } from '@/lib/api';
@@ -159,6 +160,7 @@ export function DashboardPage() {
       {tab === 'home' && (
         <div className="mt-6 grid gap-4 lg:grid-cols-3">
           <div className="space-y-8 lg:col-span-2">
+            <PwaInstallBanner />
             {/* CONTINUER L'EXPLORATION */}
             {lastSearchQuery && (
               <div className="flex items-center justify-between gap-4 rounded-2xl border border-hec-100 bg-hec-50 p-4 sm:p-5">
