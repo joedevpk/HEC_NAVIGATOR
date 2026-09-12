@@ -16,6 +16,7 @@ import {
   getLocations,
   getRouteNodes,
   getRouteSegments,
+  filterValidSegments,
   removeFavorite,
 } from '@/lib/api';
 import type {
@@ -95,12 +96,20 @@ export function CampusProvider({ children }: { children: ReactNode }) {
     }
 
     if (nodesRes.status === 'fulfilled' && segRes.status === 'fulfilled') {
+      // Écarte les segments qui référencent un nœud supprimé/inexistant
+      // (from_node/to_node orphelin) AVANT qu'ils n'atteignent le graphe
+      // de routing (nav.ts) — sinon ces arêtes fantômes, bien
+      // qu'inoffensives pour A* (elles mènent à une impasse silencieuse),
+      // représentent des données de réseau incohérentes (ÉTAPE routing
+      // #7). `filterValidSegments` existait déjà dans lib/api.ts mais
+      // n'était jamais appelée.
       setRouteNodes(nodesRes.value);
-      setRouteSegments(segRes.value);
+      setRouteSegments(filterValidSegments(nodesRes.value, segRes.value));
       setRoutingError(null);
     } else {
-      // Pas de graphe de navigation disponible : nav.ts se replie
-      // automatiquement sur l'itinéraire direct, ce n'est pas bloquant.
+      // Pas de graphe de navigation disponible : findRoute() (nav.ts)
+      // renvoie une erreur explicite (ROUTE_NETWORK_MISSING), affichée
+      // clairement par RoutePanel — jamais un itinéraire fictif.
       setRouteNodes([]);
       setRouteSegments([]);
       setRoutingError(null);

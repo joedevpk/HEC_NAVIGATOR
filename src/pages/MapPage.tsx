@@ -35,7 +35,7 @@ import { LocationSearch } from '@/components/LocationSearch';
 import { POIFilters } from '@/components/POIFilters';
 import { RoutePanel } from '@/components/RoutePanel';
 import { Button, EmptyState, Spinner } from '@/components/ui';
-import { buildGraphRoute, type RouteResult } from '@/lib/nav';
+import { findRoute, distanceToPolylineMeters, type RouteResult, type RouteError } from '@/lib/nav';
 import { getRecentSearches } from '@/lib/api';
 import { buildingCategoryLabels } from '@/lib/display';
 import { MAP_STYLE_MODES, mapStyleLabels, type MapStyleMode } from '@/lib/map-config';
@@ -155,6 +155,33 @@ const geoStatusShortLabel: Record<GeoStatus, string> = {
   unavailable: 'Indisponible',
 };
 
+/**
+ * Traduit un échec de calcul d'itinéraire (`RouteError`, voir lib/nav.ts)
+ * en message honnête pour l'utilisateur — jamais un itinéraire fictif à
+ * la place : la distance à vol d'oiseau, quand connue, n'est mentionnée
+ * qu'en texte, jamais tracée sur la carte (voir routeCoordinates plus
+ * bas, qui ne reçoit que route.coordinates d'une VRAIE route calculée).
+ */
+function routeErrorMessage(err: RouteError): string {
+  const asTheCrowFlies =
+    typeof err.straightLineDistanceMeters === 'number'
+      ? ` (distance à vol d'oiseau : environ ${Math.round(err.straightLineDistanceMeters)} m, non affichée sur la carte)`
+      : '';
+  switch (err.code) {
+    case 'ROUTE_NETWORK_MISSING':
+      return "Le réseau piéton de ce campus n'est pas encore configuré.";
+    case 'ROUTE_NETWORK_UNREACHABLE':
+      return `Ce trajet est trop loin du réseau piéton connu pour être calculé${asTheCrowFlies}.`;
+    case 'ROUTE_NOT_FOUND':
+      return `Aucun chemin n'a été trouvé entre ces deux points sur le réseau piéton actuel${asTheCrowFlies}.`;
+    case 'INVALID_ORIGIN':
+    case 'INVALID_DESTINATION':
+      return 'Coordonnées invalides — impossible de calculer un itinéraire.';
+    default:
+      return "Impossible de calculer l'itinéraire.";
+  }
+}
+
 export function MapPage() {
   const {
     campus,
@@ -175,7 +202,12 @@ export function MapPage() {
   const [selected, setSelected] = useState<CampusLocation | null>(null);
   const [origin, setOrigin] = useState<CampusLocation | null>(null);
   const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
-  const [routeNetworkMissing, setRouteNetworkMissing] = useState(false);
+  const [routeError, setRouteError] = useState<RouteError | null>(null);
+  // Navigation active (ÉTAPE routing #11/12) : uniquement déclenchée par le
+  // bouton "Démarrer" de RoutePanel (onStart), jamais automatiquement.
+  // Réinitialisée à chaque fermeture du panneau ou changement de
+  // destination — jamais reportée sur un nouveau trajet.
+  const [navigationActive, setNavigationActive] = useState(false);
   const [accessible, setAccessible] = useState(true);
   const [recent, setRecent] = useState<string[]>([]);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -243,6 +275,10 @@ export function MapPage() {
   // renvoyée par startLocationWatch et on l'appelle systématiquement avant
   // d'en démarrer un nouveau, ou au démontage de la page.
   const geoStopRef = useRef<(() => void) | null>(null);
+  // Cooldown entre deux recalculs automatiques pendant une navigation
+  // active (ÉTAPE routing #11/12) : évite la boucle "GPS update →
+  // recalcul → GPS update → recalcul" en cas de bruit GPS soutenu.
+  const lastRecalcAtRef = useRef(0);
 
   const stopGeolocationWatch = useCallback(() => {
     geoStopRef.current?.();
@@ -494,6 +530,7 @@ export function MapPage() {
       setSelected(destination);
       setSelectedPoi(null);
       setPanelMode('route');
+      setNavigationActive(false);
       setMobileSearchOpen(false);
       setGeoStatus((current) => {
         if (!origin && current === 'idle') requestGeolocation();
@@ -525,22 +562,62 @@ export function MapPage() {
 
   // Compute route when origin/destination/accessible change. Utilise le
   // graphe reel du campus (route_nodes/route_segments) quand disponible.
-  // Si le graphe est absent, on ne simule JAMAIS un itinéraire en ligne
-  // droite : on l'affiche clairement comme non disponible (ÉTAPE 5).
+  // findRoute() (lib/nav.ts) ne renvoie JAMAIS une route fictive : en cas
+  // d'échec (réseau absent, point trop loin du réseau, aucun chemin
+  // trouvé...), routeResult reste null et routeError porte la cause
+  // exacte — jamais de ligne droite envoyée à routeCoordinates/CampusMap
+  // pour "faire comme si" un itinéraire existait.
   useEffect(() => {
     if (panelMode !== 'route' || !origin || !selected) {
       setRouteResult(null);
-      setRouteNetworkMissing(false);
+      setRouteError(null);
+      setNavigationActive(false);
       return;
     }
-    if (routeNodes.length === 0 || routeSegments.length === 0) {
+    const outcome = findRoute(origin, selected, accessible, routeNodes, routeSegments);
+    if (outcome.ok) {
+      setRouteResult(outcome.route);
+      setRouteError(null);
+    } else {
       setRouteResult(null);
-      setRouteNetworkMissing(true);
-      return;
+      setRouteError(outcome.error);
     }
-    setRouteNetworkMissing(false);
-    setRouteResult(buildGraphRoute(origin, selected, accessible, routeNodes, routeSegments));
   }, [panelMode, origin, selected, accessible, routeNodes, routeSegments]);
+
+  // Navigation active : suivi hors-itinéraire + recalcul sûr (ÉTAPE
+  // routing #11/12). Réutilise le geoFix déjà mis à jour par le suivi GPS
+  // existant (aucun second watchPosition). Ne recalcule que si :
+  // - la navigation a été explicitement démarrée (onStart) ;
+  // - une route réelle est affichée (jamais pendant un état d'erreur) ;
+  // - le dernier fix GPS est fiable (jamais périmé/imprécis, cf.
+  //   isTrustworthy) ;
+  // - la distance au tracé dépasse un seuil qui tient compte de la
+  //   précision GPS réelle (jamais une constante arbitraire figée) ;
+  // - le cooldown depuis le dernier recalcul est écoulé (évite la boucle
+  //   GPS update → recalcul → GPS update → recalcul).
+  // En cas d'échec du recalcul, on NE remplace PAS le dernier itinéraire
+  // valide par une erreur soudaine pendant que l'utilisateur marche : on
+  // retente au prochain cycle GPS, une fois le cooldown écoulé.
+  useEffect(() => {
+    if (!navigationActive || !routeResult || !selected || !geoFix) return;
+    if (!isTrustworthy(geoFix)) return;
+    const OFF_ROUTE_BASE_METERS = 25;
+    const RECALC_COOLDOWN_MS = 8_000;
+    const threshold = OFF_ROUTE_BASE_METERS + geoFix.accuracy;
+    const distance = distanceToPolylineMeters([geoFix.lng, geoFix.lat], routeResult.coordinates);
+    if (distance <= threshold) return;
+    const now = Date.now();
+    if (now - lastRecalcAtRef.current < RECALC_COOLDOWN_MS) return;
+    lastRecalcAtRef.current = now;
+    const recalcOrigin = syntheticOrigin([geoFix.lng, geoFix.lat], 'Ma position');
+    const outcome = findRoute(recalcOrigin, selected, accessible, routeNodes, routeSegments);
+    if (outcome.ok) {
+      setOrigin(recalcOrigin);
+      setOriginAccuracyMeters(geoFix.accuracy);
+      setRouteResult(outcome.route);
+      setRouteError(null);
+    }
+  }, [navigationActive, routeResult, selected, geoFix, accessible, routeNodes, routeSegments]);
 
   const startRoute = useCallback(
     (destination: CampusLocation) => selectRouteDestination(destination),
@@ -556,7 +633,8 @@ export function MapPage() {
     setSelected(null);
     setSelectedPoi(null);
     setRouteResult(null);
-    setRouteNetworkMissing(false);
+    setRouteError(null);
+    setNavigationActive(false);
     setPanelMode('search');
     setManualPickMode(false);
     if (route.params.get('loc') || route.params.get('nav')) {
@@ -750,26 +828,26 @@ export function MapPage() {
               />
             )}
 
-            {panelMode === 'route' && selected && origin && routeNetworkMissing && (
-              <div className="animate-fade-up">
-                <PanelSectionHeader title={`Itinéraire vers ${selected.name}`} onClose={closePanel} />
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-                  Le réseau piéton de ce campus n'est pas encore configuré.
-                </div>
-              </div>
-            )}
-
-            {panelMode === 'route' && selected && origin && !routeNetworkMissing && routeResult && (
+            {panelMode === 'route' && selected && origin && (routeResult || routeError) && (
               <RoutePanel
                 origin={origin}
                 destination={selected}
                 route={routeResult}
+                error={routeError ? routeErrorMessage(routeError) : null}
                 accessible={accessible}
                 origins={originChoices}
                 onChangeOrigin={handleChangeOrigin}
                 warning={originWarning}
                 onToggleAccessible={() => setAccessible((a) => !a)}
                 onClose={closePanel}
+                onUseMyLocation={requestGeolocation}
+                onStart={() => setNavigationActive(true)}
+                onRecenter={handleLocateClick}
+                onChangeDestination={() => {
+                  setPanelMode('search');
+                  setSelected(null);
+                  setNavigationActive(false);
+                }}
               />
             )}
 
@@ -1142,23 +1220,26 @@ export function MapPage() {
               />
             )}
 
-            {panelMode === 'route' && selected && origin && routeNetworkMissing && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-                Le réseau piéton de ce campus n'est pas encore configuré.
-              </div>
-            )}
-
-            {panelMode === 'route' && selected && origin && !routeNetworkMissing && routeResult && (
+            {panelMode === 'route' && selected && origin && (routeResult || routeError) && (
               <RoutePanel
                 origin={origin}
                 destination={selected}
                 route={routeResult}
+                error={routeError ? routeErrorMessage(routeError) : null}
                 accessible={accessible}
                 origins={originChoices}
                 onChangeOrigin={handleChangeOrigin}
                 warning={originWarning}
                 onToggleAccessible={() => setAccessible((a) => !a)}
                 onClose={closePanel}
+                onUseMyLocation={requestGeolocation}
+                onStart={() => setNavigationActive(true)}
+                onRecenter={handleLocateClick}
+                onChangeDestination={() => {
+                  setPanelMode('search');
+                  setSelected(null);
+                  setNavigationActive(false);
+                }}
               />
             )}
 

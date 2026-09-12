@@ -63,6 +63,51 @@ function isValidCoordinate(lng: number, lat: number): boolean {
   );
 }
 
+/**
+ * Distance minimale (mètres) entre un point et une polyligne — utilisée
+ * pendant une navigation active pour détecter si l'utilisateur s'est
+ * réellement écarté de l'itinéraire (section 11/12 du cahier des
+ * charges), plutôt que de comparer uniquement au point de départ.
+ *
+ * Projection localement plane (équirectangulaire, mise à l'échelle par
+ * cos(latitude) au point de référence) : à l'échelle d'un campus
+ * (quelques centaines de mètres), l'erreur introduite est de l'ordre du
+ * centimètre — largement négligeable face à l'incertitude GPS elle-même
+ * (`accuracy`, en général ≥ 5 m). Ce n'est pas une approximation
+ * dégradée qui fausserait la détection hors-itinéraire.
+ */
+export function distanceToPolylineMeters(
+  point: [number, number],
+  polyline: [number, number][],
+): number {
+  if (polyline.length === 0) return Infinity;
+  if (polyline.length === 1) return haversine(point, polyline[0]);
+
+  const [pLng, pLat] = point;
+  const metersPerDegLat = 111_320;
+  const metersPerDegLng = 111_320 * Math.cos((pLat * Math.PI) / 180);
+  const toXY = (p: [number, number]): [number, number] => [
+    (p[0] - pLng) * metersPerDegLng,
+    (p[1] - pLat) * metersPerDegLat,
+  ];
+
+  let minDistSq = Infinity;
+  for (let i = 0; i < polyline.length - 1; i++) {
+    const a = toXY(polyline[i]);
+    const b = toXY(polyline[i + 1]);
+    const abx = b[0] - a[0];
+    const aby = b[1] - a[1];
+    const lenSq = abx * abx + aby * aby;
+    let t = lenSq > 0 ? (-a[0] * abx - a[1] * aby) / lenSq : 0;
+    t = Math.max(0, Math.min(1, t));
+    const dx = -(a[0] + t * abx);
+    const dy = -(a[1] + t * aby);
+    const distSq = dx * dx + dy * dy;
+    if (distSq < minDistSq) minDistSq = distSq;
+  }
+  return Math.sqrt(minDistSq);
+}
+
 // ---------------------------------------------------------------------
 // Vitesses de marche (ÉTAPE 5, point 11) : configurées, jamais présentées
 // comme des données exactes. Architecture prête pour affiner plus tard
